@@ -359,7 +359,7 @@ def get_prediction_batched(
     object_prediction_list: List[ObjectPrediction] = [pred for preds in object_prediction_list_per_image for pred in preds]
 
     return PredictionResult(
-        object_prediction_list=object_prediction_list_per_image, durations_in_seconds=durations_in_seconds
+        object_prediction_list=object_prediction_list, durations_in_seconds=durations_in_seconds
     )
 
 def get_sliced_prediction_batched(
