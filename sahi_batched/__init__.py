@@ -1,1 +1,1 @@
-from .main import slice_image
+from .main import get_sliced_prediction_batched

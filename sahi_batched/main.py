@@ -447,7 +447,7 @@ def get_sliced_prediction_batched(
 
     # create prediction input
     if verbose == 1 or verbose == 2:
-        tqdm.write(f"Performing prediction on {num_slices} number of slices.")
+        print(f"Performing prediction on {num_slices} number of slices.")
 
     final_object_prediction_list: List[ObjectPrediction] = []
 
