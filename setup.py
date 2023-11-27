@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 def get_requirements():
     with open("requirements.txt", encoding="utf8") as f:
