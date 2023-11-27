@@ -8,6 +8,6 @@ setup(
     name='sahi_batched',
     version='0.1',
     description='SAHI batched inference library',
-    packages=['sahi_batched'],
+    packages=find_packages(),
     install_requires=get_requirements(),
 )
