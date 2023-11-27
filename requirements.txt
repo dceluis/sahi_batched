@@ -1,2 +1,3 @@
 numpy
 sahi>=0.11.0
+torch

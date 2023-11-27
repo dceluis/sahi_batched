@@ -3,7 +3,7 @@ import numpy as np
 import logging
 import os
 
-from sahi.models.yolov8 import Yolov8DetectionModel
+from .models.yolov8 import Yolov8DetectionModel
 from typing import List, Optional, Union, Dict
 
 from sahi.postprocess.combine import (
@@ -21,6 +21,14 @@ POSTPROCESS_NAME_TO_CLASS = {
     "LSNMS": LSNMSPostprocess,
 }
 
+class PredictionResult:
+    def __init__(
+        self,
+        object_prediction_list: List[ObjectPrediction],
+        durations_in_seconds: Dict[str, float],
+    ):
+        self.object_prediction_list = object_prediction_list
+        self.durations_in_seconds = durations_in_seconds
 
 class PseudoPIL:
     def __init__(self, ndarray):
@@ -289,11 +297,12 @@ def slice_image(
 
     return sliced_image_result
 
-def get_prediction(
+def get_prediction_batched(
     image,
     detection_model,
     shift_amount_list: list = [[0, 0]],
     full_shape=None,
+    postprocess: Optional[PostprocessPredictions] = None,
     verbose: int = 0,
 ) -> list:
     """
@@ -308,6 +317,7 @@ def get_prediction(
             sized image, should be in the form of [shift_x, shift_y]
         full_shape: List
             Size of the full image, should be in the form of [height, width]
+        postprocess: sahi.postprocess.combine.PostprocessPredictions
         verbose: int
             0: no print (default)
             1: print prediction duration
@@ -343,9 +353,14 @@ def get_prediction(
             "seconds.",
         )
 
-    return object_prediction_list_per_image
+    # flatten object_prediction_list_per_image
+    object_prediction_list: List[ObjectPrediction] = [pred for preds in object_prediction_list_per_image for pred in preds]
 
-def get_sliced_prediction(
+    return PredictionResult(
+        object_prediction_list=object_prediction_list_per_image, durations_in_seconds=durations_in_seconds
+    )
+
+def get_sliced_prediction_batched(
     image,
     detection_model=None,
     slice_height: int = None,
@@ -378,6 +393,9 @@ def get_sliced_prediction(
             Fractional overlap in width of each window (e.g. an overlap of 0.2 for a window
             of size 512 yields an overlap of 102 pixels).
             Default to ``0.2``.
+        perform_standard_pred: bool
+            Perform a standard prediction on top of sliced predictions to increase large object
+            detection accuracy. Default: True.
         postprocess_type: str
             Type of the postprocess to be used after sliced inference while merging/eliminating predictions.
             Options are 'NMM', 'GRREDYNMM' or 'NMS'. Default is 'GRREDYNMM'.
@@ -434,7 +452,7 @@ def get_sliced_prediction(
     final_object_prediction_list: List[ObjectPrediction] = []
 
     # perform batch prediction
-    object_prediction_lists = get_prediction(
+    prediction_result = get_prediction_batched(
         image=slice_image_result.images,
         detection_model=detection_model,
         shift_amount_list=slice_image_result.starting_pixels,
@@ -444,11 +462,10 @@ def get_sliced_prediction(
         ],
     )
 
-    for object_prediction_list in object_prediction_lists:
-        # convert sliced predictions to full predictions
-        for object_prediction in object_prediction_list:
-            if object_prediction:  # if not empty
-                final_object_prediction_list.append(object_prediction.get_shifted_object_prediction())
+    # convert sliced predictions to full predictions
+    for object_prediction in prediction_result.object_prediction_list:
+        if object_prediction:  # if not empty
+            final_object_prediction_list.append(object_prediction.get_shifted_object_prediction())
 
     # merge matching predictions
     if len(final_object_prediction_list) > 1:
@@ -469,25 +486,6 @@ def get_sliced_prediction(
             "seconds.",
         )
 
-    return final_object_prediction_list
-
-class Yolov8BatchedDetectionModel(Yolov8DetectionModel):
-    def perform_inference(self, images: List[np.ndarray]):
-        """
-        Prediction is performed using self.model and the prediction result is set to self._original_predictions.
-        Args:
-            image: np.ndarray
-                A numpy array that contains the image to be predicted. 3 channel image should be in RGB order.
-        """
-
-        # Confirm model is loaded
-        if self.model is None:
-            raise ValueError("Model is not loaded, load it by calling .load_model()")
-
-        prediction_result = self.model.predict(source=images, verbose=False, device=self.device)
-
-        prediction_result = [
-            result.boxes.data[result.boxes.data[:, 4] >= self.confidence_threshold] for result in prediction_result
-        ]
-
-        self._original_predictions = prediction_result
+    return PredictionResult(
+        object_prediction_list=final_object_prediction_list, durations_in_seconds=durations_in_seconds
+    )
