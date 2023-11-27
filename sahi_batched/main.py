@@ -6,6 +6,8 @@ import os
 from .models.yolov8 import Yolov8DetectionModel
 from typing import List, Optional, Union, Dict
 
+from sahi.prediction import ObjectPrediction
+
 from sahi.postprocess.combine import (
     GreedyNMMPostprocess,
     LSNMSPostprocess,
